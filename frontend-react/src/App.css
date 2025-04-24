@@ -1,0 +1,10 @@
+.App {
+  margin: 20px;
+}
+
+.controls select,
+.controls input,
+.controls button {
+  margin: 0 10px;
+  padding: 5px;
+}

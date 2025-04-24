@@ -1,0 +1,45 @@
+.log-viewer.logs {
+    background-color: #ffffff;
+}
+
+.log-viewer.threats {
+    background-color: #ffcccc;
+}
+
+.log-viewer.alerts {
+    background-color: #ffffe0;
+}
+
+.log-viewer.anomalies {
+    background-color: #e6e6fa;
+}
+
+.table-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.log-table th,
+.log-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.log-table.logs tr.threat-row {
+    background-color: #ff4444;
+}
+
+.pagination {
+    margin-top: 10px;
+}
+
+.pagination button {
+    padding: 5px 10px;
+    margin: 0 5px;
+}
