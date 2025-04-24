@@ -1,0 +1,5 @@
+venv/
+__pycache__/
+frontend-react/node_modules/
+*.pyc
+ingestion/test_logs.txt
