@@ -1,10 +1,91 @@
-.App {
-  margin: 20px;
+.dashboard {
+  padding: 20px;
+  font-family: Arial, sans-serif;
 }
 
-.controls select,
-.controls input,
-.controls button {
-  margin: 0 10px;
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.controls {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.controls select, .controls input {
+  margin-right: 10px;
   padding: 5px;
+}
+
+.summary {
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+.summary h2 {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.summary-stats {
+  display: flex;
+  justify-content: space-around;
+}
+
+.stat {
+  font-size: 1em;
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.tabs button {
+  padding: 10px 20px;
+  margin: 0 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.table-section {
+  flex: 1;
+  min-width: 300px;
+}
+
+.chart-section {
+  flex: 1;
+  min-width: 300px;
+}
+
+@media (max-width: 768px) {
+  .content {
+      flex-direction: column;
+  }
 }

@@ -1,5 +1,11 @@
 import random
 from datetime import datetime, timedelta
+import logging
+import os
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def generate_test_logs(filename, num_logs=5000, days_back=30):
     # Lista de IPs para simular diferentes fuentes
@@ -47,53 +53,69 @@ def generate_test_logs(filename, num_logs=5000, days_back=30):
     end_time = datetime.now()
     start_time = end_time - timedelta(days=days_back)
 
-    with open(filename, 'w') as f:
-        for i in range(num_logs):
-            # Generar un timestamp dentro del rango de tiempo
-            seconds_range = (end_time - start_time).total_seconds()
-            random_seconds = random.uniform(0, seconds_range)
-            timestamp = start_time + timedelta(seconds=random_seconds)
-            timestamp_str = timestamp.isoformat() + "Z"
+    # Asegurar una distribución equitativa entre tenants
+    logs_per_tenant = num_logs // 2  # 2500 logs por tenant
+    tenant_logs = {"tenant1": [], "tenant2": []}
 
-            # Seleccionar tenant
-            tenant = random.choice(["tenant1", "tenant2"])
+    try:
+        for tenant in ["tenant1", "tenant2"]:
+            for i in range(logs_per_tenant):
+                # Generar un timestamp dentro del rango de tiempo
+                seconds_range = (end_time - start_time).total_seconds()
+                random_seconds = random.uniform(0, seconds_range)
+                timestamp = start_time + timedelta(seconds=random_seconds)
+                timestamp_str = timestamp.isoformat() + "Z"
 
-            # Seleccionar IP y ubicación
-            ip = random.choice(ips)
-            location = random.choice(locations)
+                # Seleccionar IP y ubicación
+                ip = random.choice(ips)
+                location = random.choice(locations)
 
-            # Generar un mensaje de log realista
-            log_type = random.choices(
-                ["normal", "failed", "sql_injection", "suspicious"],
-                weights=[0.5, 0.3, 0.1, 0.1],  # 50% normal, 30% failed, 10% sql_injection, 10% suspicious
-                k=1
-            )[0]
+                # Generar un mensaje de log realista
+                log_type = random.choices(
+                    ["normal", "failed", "sql_injection", "suspicious"],
+                    weights=[0.5, 0.3, 0.1, 0.1],  # 50% normal, 30% failed, 10% sql_injection, 10% suspicious
+                    k=1
+                )[0]
 
-            if log_type == "normal":
-                method = random.choice(methods)
-                endpoint = random.choice(endpoints)
-                user = random.choice(users)
-                message = f"{method} {endpoint} by {user} from {ip} ({location})"
+                if log_type == "normal":
+                    method = random.choice(methods)
+                    endpoint = random.choice(endpoints)
+                    user = random.choice(users)
+                    message = f"{method} {endpoint} by {user} from {ip} ({location})"
 
-            elif log_type == "failed":
-                user = random.choice(users)
-                message = f"Failed login attempt for {user} from {ip} ({location})"
+                elif log_type == "failed":
+                    user = random.choice(users)
+                    message = f"Failed login attempt for {user} from {ip} ({location})"
 
-            elif log_type == "sql_injection":
-                method = random.choice(methods)
-                endpoint = random.choice(endpoints)
-                injection = random.choice(sql_injections)
-                message = f"{method} {endpoint}{injection} from {ip} ({location})"
+                elif log_type == "sql_injection":
+                    method = random.choice(methods)
+                    endpoint = random.choice(endpoints)
+                    injection = random.choice(sql_injections)
+                    message = f"{method} {endpoint}{injection} from {ip} ({location})"
 
-            else:  # suspicious
-                user = random.choice(users)
-                suspicion = random.choice(suspicious_messages)
-                message = f"{suspicion} by {user} from {ip} ({location})"
+                else:  # suspicious
+                    user = random.choice(users)
+                    suspicion = random.choice(suspicious_messages)
+                    message = f"{suspicion} by {user} from {ip} ({location})"
 
-            log = f"{timestamp_str} {tenant} {message}\n"
-            f.write(log)
+                log = f"{timestamp_str} {tenant} {message}\n"
+                tenant_logs[tenant].append(log)
 
-    print(f"Generated {num_logs} test logs in {filename} covering the last {days_back} days.")
+        # Mezclar los logs de ambos tenants para simular un orden más realista
+        all_logs = tenant_logs["tenant1"] + tenant_logs["tenant2"]
+        random.shuffle(all_logs)
+
+        # Asegurar que el directorio exista
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+        # Escribir los logs en el archivo
+        with open(filename, 'w') as f:
+            f.writelines(all_logs)
+
+        logger.info(f"Generated {num_logs} test logs in {filename} covering the last {days_back} days.")
+    except Exception as e:
+        logger.error(f"Error generating test logs: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     generate_test_logs("test_logs.txt", num_logs=5000, days_back=30)

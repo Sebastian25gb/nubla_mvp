@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './LogViewer.css';
 
-const PaginatedTable = ({ logs, title, type, total, fetchData, filter = '' }) => {
+const PaginatedTable = ({ logs, title, type, total, fetchData, filter = '', onError }) => {
     const [page, setPage] = useState(1);
     const itemsPerPage = 50;
+    const [hasFetched, setHasFetched] = useState(false);
 
     // Asegurarnos de que logs sea un array y total sea un número
     const validLogs = Array.isArray(logs) ? logs : [];
@@ -14,6 +15,21 @@ const PaginatedTable = ({ logs, title, type, total, fetchData, filter = '' }) =>
         log.message && typeof log.message === 'string' && log.message.toLowerCase().includes(filter.toLowerCase())
     );
 
+    useEffect(() => {
+        const from = (page - 1) * itemsPerPage;
+        if (fetchData && from + itemsPerPage > validLogs.length && validLogs.length < validTotal && !hasFetched) {
+            setHasFetched(true);
+            fetchData(from, itemsPerPage).then(() => {
+                setHasFetched(false);
+            }).catch((error) => {
+                setHasFetched(false);
+                if (onError) {
+                    onError(`Failed to fetch more ${title.toLowerCase()}: ${error.message}`);
+                }
+            });
+        }
+    }, [page, validLogs.length, validTotal, fetchData, hasFetched, title, onError]);
+
     const paginatedLogs = filteredLogs.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
     const handlePrevious = () => {
@@ -22,8 +38,16 @@ const PaginatedTable = ({ logs, title, type, total, fetchData, filter = '' }) =>
 
     const handleNext = () => {
         const from = page * itemsPerPage;
-        if (from < validTotal && fetchData) {
-            fetchData(from, itemsPerPage);
+        if (from < validTotal && fetchData && !hasFetched) {
+            setHasFetched(true);
+            fetchData(from, itemsPerPage).then(() => {
+                setHasFetched(false);
+            }).catch((error) => {
+                setHasFetched(false);
+                if (onError) {
+                    onError(`Failed to fetch more ${title.toLowerCase()}: ${error.message}`);
+                }
+            });
         }
         setPage(page => page + 1);
     };
@@ -45,7 +69,10 @@ const PaginatedTable = ({ logs, title, type, total, fetchData, filter = '' }) =>
                             </thead>
                             <tbody>
                                 {paginatedLogs.map((log, index) => (
-                                    <tr key={index} className={log.message && log.message.toLowerCase().includes("failed") && type === "logs" ? "threat-row" : ""}>
+                                    <tr 
+                                        key={`${log.timestamp}-${index}`} 
+                                        className={log.message && log.message.toLowerCase().includes("failed") && type === "logs" ? "threat-row" : ""}
+                                    >
                                         <td>{log.timestamp && log.timestamp.length > 20 ? log.timestamp.substring(0, 20) + '...' : log.timestamp || 'N/A'}</td>
                                         <td>{log.tenant || 'N/A'}</td>
                                         <td>{log.message && log.message.length > 50 ? log.message.substring(0, 50) + '...' : log.message || 'N/A'}</td>

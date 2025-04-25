@@ -1,68 +1,20 @@
+version: '3'
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"  # Aumentado de 512m a 1g
+      - xpack.security.enabled=false  # En producción, habilitar seguridad y configurar usuarios/contraseñas
     ports:
       - "9200:9200"
     volumes:
       - esdata:/usr/share/elasticsearch/data
-    networks:
-      - nubla-network
     deploy:
       resources:
         limits:
-          cpus: "1.0"
-          memory: "2G"
+          memory: "2g"  # Limitar memoria a 2GB
         reservations:
-          cpus: "0.5"
-          memory: "1G"
-
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    environment:
-      - KAFKA_BROKER_ID=1
-      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
-      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
-      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    networks:
-      - nubla-network
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: "1G"
-        reservations:
-          cpus: "0.5"
-          memory: "512M"
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    environment:
-      - ZOOKEEPER_CLIENT_PORT=2181
-      - ZOOKEEPER_TICK_TIME=2000
-    ports:
-      - "2181:2181"
-    networks:
-      - nubla-network
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: "512M"
-        reservations:
-          cpus: "0.25"
-          memory: "256M"
-
-networks:
-  nubla-network:
-    driver: bridge
+          memory: "1g"  # Reservar al menos 1GB
 
 volumes:
   esdata:

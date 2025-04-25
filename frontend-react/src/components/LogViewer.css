@@ -1,5 +1,10 @@
 .log-viewer.logs {
-    background-color: #ffffff;
+    background-color: white;
+}
+
+.log-viewer.logs .threat-row {
+    background-color: #ff0000;
+    color: white;
 }
 
 .log-viewer.threats {
@@ -14,32 +19,46 @@
     background-color: #e6e6fa;
 }
 
-.table-container {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
 .log-table {
     width: 100%;
     border-collapse: collapse;
+    margin-bottom: 10px; /* Reducir margen para mejor integración con el layout */
 }
 
-.log-table th,
-.log-table td {
+.log-table th, .log-table td {
     border: 1px solid #ddd;
     padding: 8px;
     text-align: left;
 }
 
-.log-table.logs tr.threat-row {
-    background-color: #ff4444;
+.log-table th {
+    background-color: #f2f2f2;
+}
+
+.table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd; /* Agregar borde para mejor definición */
+    border-radius: 5px;
 }
 
 .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     margin-top: 10px;
 }
 
 .pagination button {
-    padding: 5px 10px;
     margin: 0 5px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
