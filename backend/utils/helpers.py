@@ -1,11 +1,16 @@
-from dateutil.parser import parse as parse_date
+from datetime import datetime
 import re
+import logging
 
-def parse_timestamp(timestamp):
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def parse_timestamp(timestamp_str):
     try:
-        return parse_date(timestamp)
-    except Exception as e:
-        print(f"Error parsing timestamp {timestamp}: {str(e)}")
+        return datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Error parsing timestamp {timestamp_str}: {str(e)}")
         return None
 
 def extract_ip(message):

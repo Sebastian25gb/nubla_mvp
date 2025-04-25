@@ -7,6 +7,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ingestion.generate_tenants import generate_tenants
 from ingestion.generate_test_logs import generate_test_logs
 from ingestion.ingest import ingest_logs
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -23,10 +28,10 @@ async def startup_event():
     
     try:
         # Verificar y generar los tenants
-        print("Checking tenants initialization...")
+        logger.info("Checking tenants initialization...")
         generate_tenants()
     except Exception as e:
-        print(f"Error initializing tenants: {str(e)}")
+        logger.error(f"Error initializing tenants: {str(e)}")
         # Continuar a pesar del error para no detener el servidor
     
     # Verificar si los índices de logs existen y tienen datos
@@ -43,26 +48,26 @@ async def startup_event():
         index_name = tenant["index_name"]
         try:
             if not es.indices.exists(index=index_name):
-                print(f"Index {index_name} does not exist, it will be created...")
+                logger.info(f"Index {index_name} does not exist, it will be created...")
                 should_generate_logs = True
             else:
                 result = es.count(index=index_name)
                 if result["count"] == 0:
-                    print(f"Index {index_name} is empty, it will be populated...")
+                    logger.info(f"Index {index_name} is empty, it will be populated...")
                     should_generate_logs = True
                 else:
-                    print(f"Index {index_name} already populated with {result['count']} documents, skipping initialization.")
+                    logger.info(f"Index {index_name} already populated with {result['count']} documents, skipping initialization.")
         except Exception as e:
-            print(f"Error checking index {index_name}: {str(e)}")
+            logger.error(f"Error checking index {index_name}: {str(e)}")
             should_generate_logs = True
     
     # Generar e ingerir logs si es necesario
     if should_generate_logs:
         try:
-            print("Generating test logs...")
+            logger.info("Generating test logs...")
             generate_test_logs(logs_file, num_logs=5000, days_back=30)
-            print("Ingesting test logs into Elasticsearch...")
+            logger.info("Ingesting test logs into Elasticsearch...")
             ingest_logs(es, logs_file)
         except Exception as e:
-            print(f"Error generating/ingesting logs: {str(e)}")
+            logger.error(f"Error generating/ingesting logs: {str(e)}")
             # Continuar a pesar del error para no detener el servidor

@@ -1,48 +1,27 @@
-from elasticsearch import Elasticsearch
+from fastapi import APIRouter, HTTPException
+from utils.elasticsearch import get_elasticsearch_client
 import logging
+
+router = APIRouter()
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def generate_tenants():
+@router.get("/tenants")
+async def get_tenants():
+    es = get_elasticsearch_client()
     try:
-        es = Elasticsearch(["http://localhost:9200"])
-        if not es.ping():
-            raise Exception("Failed to connect to Elasticsearch")
-
-        # Lista de tenants
-        tenants = [
-            {"id": "tenant1", "name": "Tenant 1", "index_name": "logs-tenant1"},
-            {"id": "tenant2", "name": "Tenant 2", "index_name": "logs-tenant2"}
-        ]
-
-        # Crear el índice tenants si no existe
         if not es.indices.exists(index="tenants"):
-            logger.info("Creating tenants index...")
-            es.indices.create(index="tenants")
-        else:
-            # Verificar si el índice tiene datos
-            result = es.count(index="tenants")
-            if not isinstance(result.get("count"), (int, float)):
-                raise Exception("Invalid count result from Elasticsearch")
-            if result["count"] == 0:
-                logger.info("Tenants index is empty, populating with default tenants...")
-            else:
-                logger.info(f"Tenants index already populated with {result['count']} documents, skipping initialization.")
-                return
-
-        # Insertar los tenants
-        for tenant in tenants:
-            es.index(index="tenants", id=tenant["id"], document=tenant)
-        logger.info("Tenants indexed successfully.")
-
-        # Forzar un refresh
-        es.indices.refresh(index="tenants")
-        logger.info("Tenants index refreshed.")
+            raise HTTPException(status_code=404, detail="Tenants index not found")
+        
+        result = es.search(index="tenants", query={"match_all": {}}, size=10)
+        if not isinstance(result.get("hits", {}).get("hits"), list):
+            raise HTTPException(status_code=500, detail="Invalid response format from Elasticsearch")
+        
+        tenants = [hit["_source"] for hit in result["hits"]["hits"]]
+        logger.info(f"Retrieved tenants: {tenants}")
+        return {"tenants": tenants}
     except Exception as e:
-        logger.error(f"Error generating tenants: {str(e)}")
-        raise
-
-if __name__ == "__main__":
-    generate_tenants()
+        logger.error(f"Error fetching tenants: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching tenants: {str(e)}")

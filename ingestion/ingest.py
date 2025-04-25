@@ -1,6 +1,9 @@
-from elasticsearch import Elasticsearch, helpers
-import re
+import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from backend.utils.elasticsearch import get_elasticsearch_client
+from elasticsearch import helpers
+import re
 import logging
 
 # Configurar logging
@@ -60,9 +63,7 @@ def ingest_logs(es, filename):
 
 if __name__ == "__main__":
     try:
-        es = Elasticsearch(["http://localhost:9200"])
-        if not es.ping():
-            raise Exception("Failed to connect to Elasticsearch")
+        es = get_elasticsearch_client()
         # Usar una ruta absoluta para el archivo de logs
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         logs_file = os.path.join(base_dir, "ingestion", "test_logs.txt")
