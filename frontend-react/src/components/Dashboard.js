@@ -26,63 +26,6 @@ const Dashboard = () => {
 
     const abortControllerRef = useRef(null);
 
-    useEffect(() => {
-        abortControllerRef.current = new AbortController();
-
-        const fetchTenants = async () => {
-            try {
-                const response = await axios.get('http://localhost:8000/tenants', {
-                    signal: abortControllerRef.current.signal
-                });
-                setTenants(response.data.tenants || []);
-                if (response.data.tenants && response.data.tenants.length > 0) {
-                    setSelectedTenant(response.data.tenants[0].id);
-                }
-            } catch (error) {
-                if (axios.isCancel(error)) return;
-                setError(`Failed to load tenants: ${error.response?.status || ''} ${error.message}`);
-            }
-        };
-        fetchTenants();
-
-        return () => {
-            abortControllerRef.current.abort();
-        };
-    }, []);
-
-    useEffect(() => {
-        // Cargar estadísticas generales cuando cambie el tenant
-        const fetchSummary = async () => {
-            if (!selectedTenant) return;
-            try {
-                const [logsRes, threatsRes, alertsRes, anomaliesRes] = await Promise.all([
-                    axios.get(`http://localhost:8000/logs/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
-                    axios.get(`http://localhost:8000/threats/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
-                    axios.get(`http://localhost:8000/alerts/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
-                    axios.get(`http://localhost:8000/anomalies/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
-                ]);
-                setSummary({
-                    logs: logsRes.data.total || 0,
-                    threats: threatsRes.data.total || 0,
-                    alerts: alertsRes.data.total || 0,
-                    anomalies: anomaliesRes.data.total || 0,
-                });
-            } catch (error) {
-                if (axios.isCancel(error)) return;
-                setError(`Failed to load summary: ${error.response?.status || ''} ${error.message}`);
-            }
-        };
-
-        if (selectedTenant) {
-            fetchSummary();
-            // Cargar datos iniciales para la pestaña activa
-            if (activeTab === 'logs') fetchLogs();
-            else if (activeTab === 'threats') fetchThreats();
-            else if (activeTab === 'alerts') fetchAlerts();
-            else if (activeTab === 'anomalies') fetchAnomalies();
-        }
-    }, [selectedTenant]);
-
     const resetState = () => {
         setLogs([]);
         setThreats([]);
@@ -271,6 +214,68 @@ const Dashboard = () => {
             setAnomaliesChartData([]);
         }
     }, [selectedTenant]);
+
+    useEffect(() => {
+        abortControllerRef.current = new AbortController();
+
+        const fetchTenants = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/tenants', {
+                    signal: abortControllerRef.current.signal
+                });
+                setTenants(response.data.tenants || []);
+                if (response.data.tenants && response.data.tenants.length > 0) {
+                    setSelectedTenant(response.data.tenants[0].id);
+                }
+            } catch (error) {
+                if (axios.isCancel(error)) return;
+                setError(`Failed to load tenants: ${error.response?.status || ''} ${error.message}`);
+            }
+        };
+        fetchTenants();
+
+        return () => {
+            abortControllerRef.current.abort();
+        };
+    }, []);
+
+    // Efecto para cargar el resumen cuando cambia selectedTenant
+    useEffect(() => {
+        const fetchSummary = async () => {
+            if (!selectedTenant) return;
+            try {
+                const [logsRes, threatsRes, alertsRes, anomaliesRes] = await Promise.all([
+                    axios.get(`http://localhost:8000/logs/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
+                    axios.get(`http://localhost:8000/threats/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
+                    axios.get(`http://localhost:8000/alerts/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
+                    axios.get(`http://localhost:8000/anomalies/${selectedTenant}`, { params: { from: 0, size: 0 }, signal: abortControllerRef.current.signal }),
+                ]);
+                setSummary({
+                    logs: logsRes.data.total || 0,
+                    threats: threatsRes.data.total || 0,
+                    alerts: alertsRes.data.total || 0,
+                    anomalies: anomaliesRes.data.total || 0,
+                });
+            } catch (error) {
+                if (axios.isCancel(error)) return;
+                setError(`Failed to load summary: ${error.response?.status || ''} ${error.message}`);
+            }
+        };
+
+        if (selectedTenant) {
+            fetchSummary();
+        }
+    }, [selectedTenant]);
+
+    // Efecto para cargar datos iniciales de la pestaña activa
+    useEffect(() => {
+        if (!selectedTenant) return;
+
+        if (activeTab === 'logs') fetchLogs();
+        else if (activeTab === 'threats') fetchThreats();
+        else if (activeTab === 'alerts') fetchAlerts();
+        else if (activeTab === 'anomalies') fetchAnomalies();
+    }, [selectedTenant, activeTab, fetchLogs, fetchThreats, fetchAlerts, fetchAnomalies]);
 
     const handleTabChange = (tab) => {
         setActiveTab(tab);

@@ -1,7 +1,4 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from backend.utils.elasticsearch import get_elasticsearch_client
+from elasticsearch import Elasticsearch
 import logging
 
 # Configurar logging
@@ -10,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 def generate_tenants():
     try:
-        es = get_elasticsearch_client()
+        es = Elasticsearch(["http://localhost:9200"])
+        if not es.ping():
+            raise Exception("Failed to connect to Elasticsearch")
 
         # Lista de tenants
         tenants = [

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from routes import logs, threats, alerts, anomalies, tenants
 from utils.elasticsearch import get_elasticsearch_client
 import os
@@ -14,6 +15,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(logs.router)
 app.include_router(threats.router)
@@ -67,7 +77,7 @@ async def startup_event():
             logger.info("Generating test logs...")
             generate_test_logs(logs_file, num_logs=5000, days_back=30)
             logger.info("Ingesting test logs into Elasticsearch...")
-            ingest_logs(es, logs_file)
+            ingest_logs(logs_file)  # Ahora ingiere directamente en Elasticsearch
         except Exception as e:
             logger.error(f"Error generating/ingesting logs: {str(e)}")
             # Continuar a pesar del error para no detener el servidor

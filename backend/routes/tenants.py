@@ -25,3 +25,10 @@ async def get_tenants():
     except Exception as e:
         logger.error(f"Error fetching tenants: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching tenants: {str(e)}")
+        
+        tenants = [hit["_source"] for hit in result["hits"]["hits"]]
+        logger.info(f"Retrieved tenants: {tenants}")
+        return {"tenants": tenants}
+    except Exception as e:
+        logger.error(f"Error fetching tenants: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching tenants: {str(e)}")

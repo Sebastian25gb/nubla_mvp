@@ -1,5 +1,4 @@
 fastapi==0.115.0
 uvicorn==0.30.6
 elasticsearch==8.15.1
-python-dateutil==2.8.2
-kafka-python==2.0.2
+confluent-kafka==2.5.0

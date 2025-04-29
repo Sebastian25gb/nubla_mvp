@@ -58,6 +58,18 @@ def generate_test_logs(filename, num_logs=5000, days_back=30):
     tenant_logs = {"tenant1": [], "tenant2": []}
 
     try:
+        # Convertir filename a una ruta absoluta si no lo es
+        if not os.path.isabs(filename):
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+            filename = os.path.join(base_dir, "ingestion", filename)
+
+        # Crear el directorio si no existe
+        dirname = os.path.dirname(filename)
+        if dirname:  # Solo intentar crear el directorio si dirname no está vacío
+            os.makedirs(dirname, exist_ok=True)
+        else:
+            logger.warning("No directory specified for the file; using current directory.")
+
         for tenant in ["tenant1", "tenant2"]:
             for i in range(logs_per_tenant):
                 # Generar un timestamp dentro del rango de tiempo
@@ -105,9 +117,6 @@ def generate_test_logs(filename, num_logs=5000, days_back=30):
         all_logs = tenant_logs["tenant1"] + tenant_logs["tenant2"]
         random.shuffle(all_logs)
 
-        # Asegurar que el directorio exista
-        os.makedirs(os.path.dirname(filename), exist_ok=True)
-
         # Escribir los logs en el archivo
         with open(filename, 'w') as f:
             f.writelines(all_logs)
@@ -118,4 +127,7 @@ def generate_test_logs(filename, num_logs=5000, days_back=30):
         raise
 
 if __name__ == "__main__":
-    generate_test_logs("test_logs.txt", num_logs=5000, days_back=30)
+    # Usar una ruta absoluta para test_logs.txt
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    logs_file = os.path.join(base_dir, "ingestion", "test_logs.txt")
+    generate_test_logs(logs_file, num_logs=5000, days_back=30)
