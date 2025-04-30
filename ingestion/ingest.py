@@ -1,15 +1,24 @@
-from elasticsearch import Elasticsearch, helpers
+from confluent_kafka import Producer
 import re
 import os
 import logging
+import json
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def delivery_report(err, msg):
+    """ Callback para reportar el resultado de la entrega del mensaje """
+    if err is not None:
+        logger.error(f"Message delivery failed: {err}")
+    else:
+        logger.info(f"Message delivered to {msg.topic()} [{msg.partition()}]")
+
 def ingest_logs(filename):
     ip_pattern = r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'
     
+    # Convertir filename a una ruta absoluta si no lo es
     if not os.path.isabs(filename):
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         filename = os.path.join(base_dir, "ingestion", filename)
@@ -17,55 +26,45 @@ def ingest_logs(filename):
     if not os.path.exists(filename):
         raise FileNotFoundError(f"Log file {filename} not found")
 
-    # Configuración de Elasticsearch
-    es = Elasticsearch(["http://localhost:9200"])
-    if not es.ping():
-        raise Exception("Failed to connect to Elasticsearch")
+    # Configuración del productor de Kafka
+    conf = {
+        'bootstrap.servers': 'kafka:9092',  # Usar el nombre del servicio kafka y el puerto interno
+        'client.id': 'nubla-log-producer'
+    }
+    producer = Producer(conf)
 
     with open(filename, 'r') as f:
         logs = f.readlines()
     
-    actions = []
     for log in logs:
         try:
             parts = log.strip().split(' ', 2)
             if len(parts) != 3:
                 continue
             timestamp, tenant, message = parts
-            index_name = f"logs-{tenant}"
             
             log_entry = {
-                "_index": index_name,
-                "_source": {
-                    "timestamp": timestamp,
-                    "tenant": tenant,
-                    "message": message
-                }
+                "timestamp": timestamp,
+                "tenant": tenant,
+                "message": message
             }
-            actions.append(log_entry)
+            
+            # Enviar el log al tópico de Kafka
+            producer.produce(
+                'network-logs',
+                key=tenant.encode('utf-8'),
+                value=json.dumps(log_entry).encode('utf-8'),
+                callback=delivery_report
+            )
+            producer.poll(0)  # Procesar callbacks de entrega
+
         except Exception as e:
             logger.warning(f"Error processing log: {log}, error: {str(e)}")
             continue
     
-    try:
-        # Crear índices si no existen
-        for tenant in ["tenant1", "tenant2"]:
-            index_name = f"logs-{tenant}"
-            if not es.indices.exists(index=index_name):
-                es.indices.create(index=index_name)
-        
-        # Usar bulk para ingerir logs
-        success, failed = helpers.bulk(es, actions, raise_on_error=False)
-        logger.info(f"Ingested {success} logs into Elasticsearch, {len(failed)} failed")
-        
-        # Forzar un refresh
-        for tenant in ["tenant1", "tenant2"]:
-            index_name = f"logs-{tenant}"
-            if es.indices.exists(index=index_name):
-                es.indices.refresh(index=index_name)
-    except Exception as e:
-        logger.error(f"Error ingesting logs: {str(e)}")
-        raise
+    # Asegurarse de que todos los mensajes se entreguen antes de cerrar
+    producer.flush()
+    logger.info(f"Sent {len(logs)} logs to Kafka topic 'network-logs'")
 
 if __name__ == "__main__":
     try:

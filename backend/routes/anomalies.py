@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, Query
 from utils.elasticsearch import get_elasticsearch_client
 from utils.helpers import parse_timestamp, extract_ip
+from utils.database import get_db_connection
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
 import logging
+import os
 
 router = APIRouter()
 
@@ -19,12 +21,18 @@ async def get_anomalies(
 ):
     es = get_elasticsearch_client()
     try:
-        if not es.indices.exists(index="tenants"):
-            raise HTTPException(status_code=404, detail="Tenants index not found")
-        result = es.search(index="tenants", query={"match": {"id": tenant_id}}, size=1)
-        if not isinstance(result.get("hits", {}).get("hits"), list) or not result["hits"]["hits"]:
+        # Obtener el index_name desde SQLite
+        db_path = os.path.join(os.path.dirname(__file__), "..", "tenants.db")
+        conn = get_db_connection(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT index_name FROM tenants WHERE id = ?", (tenant_id,))
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        index_name = result["hits"]["hits"][0]["_source"]["index_name"]
+        index_name = result[0]
+
         if not es.indices.exists(index=index_name):
             raise HTTPException(status_code=404, detail=f"Logs index {index_name} not found")
 
@@ -34,7 +42,6 @@ async def get_anomalies(
             raise HTTPException(status_code=500, detail="Invalid response format from Elasticsearch")
         logs = [hit["_source"] for hit in result["hits"]["hits"]]
 
-        # Consulta de agregación para contar intentos fallidos por IP
         agg_query = {
             "query": {
                 "bool": {
@@ -46,18 +53,9 @@ async def get_anomalies(
             "aggs": {
                 "by_ip": {
                     "terms": {
+                        "field": "message",
                         "script": {
-                            "source": """
-                            if (doc.containsKey('message') && !doc['message'].empty) {
-                                def message = doc['message'].value;
-                                def pattern = /\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/;
-                                def matcher = pattern.matcher(message);
-                                if (matcher.find()) {
-                                    return matcher.group(0);
-                                }
-                            }
-                            return null;
-                            """,
+                            "source": "def ip = doc['message'].value =~ /\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/ ? doc['message'].value =~ /\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/[0] : null; ip",
                             "lang": "painless"
                         },
                         "size": 1000
@@ -65,17 +63,13 @@ async def get_anomalies(
                 }
             }
         }
-        try:
-            agg_result = es.search(index=index_name, body=agg_query)
-            ip_counts = {}
-            if "aggregations" in agg_result and "by_ip" in agg_result["aggregations"]:
-                for bucket in agg_result["aggregations"]["by_ip"]["buckets"]:
-                    ip = bucket["key"]
-                    if ip:  # Ignorar si no se encuentra IP
-                        ip_counts[ip] = bucket["doc_count"]
-        except Exception as e:
-            logger.error(f"Error executing aggregation query: {str(e)}")
-            ip_counts = {}  # Continuar sin la agregación si falla
+        agg_result = es.search(index=index_name, body=agg_query)
+        ip_counts = {}
+        if "aggregations" in agg_result and "by_ip" in agg_result["aggregations"]:
+            for bucket in agg_result["aggregations"]["by_ip"]["buckets"]:
+                ip = bucket["key"]
+                if ip:
+                    ip_counts[ip] = bucket["doc_count"]
 
         anomalies = []
         ip_timestamps = defaultdict(list)

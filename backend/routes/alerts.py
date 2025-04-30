@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
 from utils.elasticsearch import get_elasticsearch_client
 from utils.helpers import extract_ip
+from utils.database import get_db_connection
 from collections import defaultdict
 import logging
+import os
 
 router = APIRouter()
 
-# Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -14,16 +15,22 @@ logger = logging.getLogger(__name__)
 async def get_alerts(
     tenant_id: str,
     from_: int = Query(0, ge=0, alias="from"),
-    size: int = Query(50, ge=1, le=1000)
+    size: int = Query(50, ge=0, le=1000)
 ):
     es = get_elasticsearch_client()
     try:
-        if not es.indices.exists(index="tenants"):
-            raise HTTPException(status_code=404, detail="Tenants index not found")
-        result = es.search(index="tenants", query={"match": {"id": tenant_id}}, size=1)
-        if not isinstance(result.get("hits", {}).get("hits"), list) or not result["hits"]["hits"]:
+        # Obtener el index_name desde SQLite
+        db_path = os.path.join(os.path.dirname(__file__), "..", "tenants.db")
+        conn = get_db_connection(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT index_name FROM tenants WHERE id = ?", (tenant_id,))
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        index_name = result["hits"]["hits"][0]["_source"]["index_name"]
+        index_name = result[0]
+
         if not es.indices.exists(index=index_name):
             raise HTTPException(status_code=404, detail=f"Logs index {index_name} not found")
         
@@ -63,16 +70,22 @@ async def get_alerts(
 async def get_alerts_stats(
     tenant_id: str,
     from_: int = Query(0, ge=0, alias="from"),
-    size: int = Query(50, ge=1, le=5000)
+    size: int = Query(50, ge=0, le=5000)
 ):
     es = get_elasticsearch_client()
     try:
-        if not es.indices.exists(index="tenants"):
-            raise HTTPException(status_code=404, detail="Tenants index not found")
-        result = es.search(index="tenants", query={"match": {"id": tenant_id}}, size=1)
-        if not isinstance(result.get("hits", {}).get("hits"), list) or not result["hits"]["hits"]:
+        # Obtener el index_name desde SQLite
+        db_path = os.path.join(os.path.dirname(__file__), "..", "tenants.db")
+        conn = get_db_connection(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT index_name FROM tenants WHERE id = ?", (tenant_id,))
+        result = cursor.fetchone()
+        conn.close()
+
+        if not result:
             raise HTTPException(status_code=404, detail="Tenant not found")
-        index_name = result["hits"]["hits"][0]["_source"]["index_name"]
+        index_name = result[0]
+
         if not es.indices.exists(index=index_name):
             raise HTTPException(status_code=404, detail=f"Logs index {index_name} not found")
         

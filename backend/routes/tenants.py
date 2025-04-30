@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from utils.elasticsearch import get_elasticsearch_client
+from utils.database import get_db_connection
 import logging
+import os
 
 router = APIRouter()
 
@@ -10,24 +11,13 @@ logger = logging.getLogger(__name__)
 
 @router.get("/tenants")
 async def get_tenants():
-    es = get_elasticsearch_client()
+    db_path = os.path.join(os.path.dirname(__file__), "..", "tenants.db")
     try:
-        if not es.indices.exists(index="tenants"):
-            raise HTTPException(status_code=404, detail="Tenants index not found")
-        
-        result = es.search(index="tenants", query={"match_all": {}}, size=10)
-        if not isinstance(result.get("hits", {}).get("hits"), list):
-            raise HTTPException(status_code=500, detail="Invalid response format from Elasticsearch")
-        
-        tenants = [hit["_source"] for hit in result["hits"]["hits"]]
-        logger.info(f"Retrieved tenants: {tenants}")
-        return {"tenants": tenants}
-    except Exception as e:
-        logger.error(f"Error fetching tenants: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching tenants: {str(e)}")
-        
-        tenants = [hit["_source"] for hit in result["hits"]["hits"]]
-        logger.info(f"Retrieved tenants: {tenants}")
+        conn = get_db_connection(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, index_name FROM tenants")
+        tenants = [{"id": row[0], "name": row[1], "index_name": row[2]} for row in cursor.fetchall()]
+        conn.close()
         return {"tenants": tenants}
     except Exception as e:
         logger.error(f"Error fetching tenants: {str(e)}")

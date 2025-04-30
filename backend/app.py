@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import logs, threats, alerts, anomalies, tenants
 from utils.elasticsearch import get_elasticsearch_client
+from utils.database import init_database, get_db_connection
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ingestion.generate_tenants import generate_tenants
 from ingestion.generate_test_logs import generate_test_logs
 from ingestion.ingest import ingest_logs
 import logging
@@ -36,12 +36,13 @@ app.include_router(tenants.router)
 async def startup_event():
     es = get_elasticsearch_client()
     
+    # Inicializar la base de datos SQLite
+    db_path = os.path.join(os.path.dirname(__file__), "tenants.db")
     try:
-        # Verificar y generar los tenants
-        logger.info("Checking tenants initialization...")
-        generate_tenants()
+        logger.info("Initializing SQLite database...")
+        init_database(db_path)
     except Exception as e:
-        logger.error(f"Error initializing tenants: {str(e)}")
+        logger.error(f"Error initializing database: {str(e)}")
         # Continuar a pesar del error para no detener el servidor
     
     # Verificar si los índices de logs existen y tienen datos
@@ -76,8 +77,8 @@ async def startup_event():
         try:
             logger.info("Generating test logs...")
             generate_test_logs(logs_file, num_logs=5000, days_back=30)
-            logger.info("Ingesting test logs into Elasticsearch...")
-            ingest_logs(logs_file)  # Ahora ingiere directamente en Elasticsearch
+            logger.info("Ingesting test logs into Kafka...")
+            ingest_logs(logs_file)
         except Exception as e:
             logger.error(f"Error generating/ingesting logs: {str(e)}")
             # Continuar a pesar del error para no detener el servidor
