@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getTenants, getLogs, getStats } from './api';
+import './App.css'; // Importamos los estilos
 
 function App() {
   const [tenants, setTenants] = useState([]);

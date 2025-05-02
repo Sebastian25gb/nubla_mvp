@@ -1,91 +1,60 @@
-.dashboard {
-  padding: 20px;
+body {
   font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f9;
 }
 
-.header {
+h1 {
   text-align: center;
-  margin-bottom: 20px;
+  color: #333;
+  margin-top: 20px;
 }
 
-.controls {
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+h2 {
+  color: #555;
+  margin-left: 20px;
 }
 
-.controls select, .controls input {
-  margin-right: 10px;
+select {
+  margin: 20px;
   padding: 5px;
+  font-size: 16px;
 }
 
-.summary {
-  margin-bottom: 20px;
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 20px;
+}
+
+li {
+  background-color: #fff;
   padding: 10px;
-  border: 1px solid #ccc;
+  margin: 5px 0;
   border-radius: 5px;
-  background-color: #f9f9f9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.summary h2 {
-  font-size: 1.2em;
-  margin-bottom: 10px;
+table {
+  width: 90%;
+  margin: 20px auto;
+  border-collapse: collapse;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.summary-stats {
-  display: flex;
-  justify-content: space-around;
+th, td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
-.stat {
-  font-size: 1em;
-}
-
-.tabs {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.tabs button {
-  padding: 10px 20px;
-  margin: 0 5px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  background-color: #f0f0f0;
-  cursor: pointer;
-}
-
-.tabs button.active {
-  background-color: #007bff;
+th {
+  background-color: #4CAF50;
   color: white;
-  border-color: #007bff;
 }
 
-.tabs button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.content {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.table-section {
-  flex: 1;
-  min-width: 300px;
-}
-
-.chart-section {
-  flex: 1;
-  min-width: 300px;
-}
-
-@media (max-width: 768px) {
-  .content {
-      flex-direction: column;
-  }
+tr:hover {
+  background-color: #f1f1f1;
 }
