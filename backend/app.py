@@ -25,18 +25,39 @@ def get_db_connection():
         cursor_factory=RealDictCursor
     )
 
-# Endpoint para obtener logs
-@app.get("/logs")
-def get_logs():
+# Endpoint para obtener la lista de tenants
+@app.get("/tenants")
+def get_tenants():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT l.id, l.timestamp, c.tenant, l.user_id, l.action, l.status, l.bytes
-        FROM logs l
-        JOIN clients c ON l.client_id = c.id
-        ORDER BY l.timestamp DESC
-        LIMIT 100
-    """)
+    cursor.execute("SELECT tenant FROM clients ORDER BY tenant")
+    tenants = [row["tenant"] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return tenants
+
+# Endpoint para obtener logs
+@app.get("/logs")
+def get_logs(tenant: str = None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if tenant:
+        cursor.execute("""
+            SELECT l.id, l.timestamp, c.tenant, l.user_id, l.action, l.status, l.bytes
+            FROM logs l
+            JOIN clients c ON l.client_id = c.id
+            WHERE c.tenant = %s
+            ORDER BY l.timestamp DESC
+            LIMIT 100
+        """, (tenant,))
+    else:
+        cursor.execute("""
+            SELECT l.id, l.timestamp, c.tenant, l.user_id, l.action, l.status, l.bytes
+            FROM logs l
+            JOIN clients c ON l.client_id = c.id
+            ORDER BY l.timestamp DESC
+            LIMIT 100
+        """)
     logs = cursor.fetchall()
     cursor.close()
     conn.close()
