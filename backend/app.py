@@ -1,22 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import logs, threats, alerts, anomalies, tenants
-from utils.elasticsearch import get_elasticsearch_client
-from utils.database import init_database, get_db_connection
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from ingestion.generate_test_logs import generate_test_logs
-from ingestion.ingest import ingest_logs
-import logging
-
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Configurar CORS
+# Habilitar CORS para que el frontend pueda acceder al backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -25,60 +15,69 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(logs.router)
-app.include_router(threats.router)
-app.include_router(alerts.router)
-app.include_router(anomalies.router)
-app.include_router(tenants.router)
+# Conexión a PostgreSQL
+def get_db_connection():
+    return psycopg2.connect(
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        database=os.getenv("POSTGRES_DB", "nubla_db"),
+        user=os.getenv("POSTGRES_USER", "nubla_user"),
+        password=os.getenv("POSTGRES_PASSWORD", "secure_password_123"),
+        cursor_factory=RealDictCursor
+    )
 
-# Ejecutar la inicialización al iniciar el servidor
-@app.on_event("startup")
-async def startup_event():
-    es = get_elasticsearch_client()
-    
-    # Inicializar la base de datos SQLite
-    db_path = os.path.join(os.path.dirname(__file__), "tenants.db")
-    try:
-        logger.info("Initializing SQLite database...")
-        init_database(db_path)
-    except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
-        # Continuar a pesar del error para no detener el servidor
-    
-    # Verificar si los índices de logs existen y tienen datos
-    tenants = [
-        {"id": "tenant1", "index_name": "logs-tenant1"},
-        {"id": "tenant2", "index_name": "logs-tenant2"}
-    ]
-    # Usar una ruta absoluta para el archivo de logs
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    logs_file = os.path.join(base_dir, "ingestion", "test_logs.txt")
-    
-    should_generate_logs = False
-    for tenant in tenants:
-        index_name = tenant["index_name"]
-        try:
-            if not es.indices.exists(index=index_name):
-                logger.info(f"Index {index_name} does not exist, it will be created...")
-                should_generate_logs = True
-            else:
-                result = es.count(index=index_name)
-                if result["count"] == 0:
-                    logger.info(f"Index {index_name} is empty, it will be populated...")
-                    should_generate_logs = True
-                else:
-                    logger.info(f"Index {index_name} already populated with {result['count']} documents, skipping initialization.")
-        except Exception as e:
-            logger.error(f"Error checking index {index_name}: {str(e)}")
-            should_generate_logs = True
-    
-    # Generar e ingerir logs si es necesario
-    if should_generate_logs:
-        try:
-            logger.info("Generating test logs...")
-            generate_test_logs(logs_file, num_logs=5000, days_back=30)
-            logger.info("Ingesting test logs into Kafka...")
-            ingest_logs(logs_file)
-        except Exception as e:
-            logger.error(f"Error generating/ingesting logs: {str(e)}")
-            # Continuar a pesar del error para no detener el servidor
+# Endpoint para obtener la lista de tenants
+@app.get("/tenants")
+def get_tenants():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT tenant FROM clients ORDER BY tenant")
+    tenants = [row["tenant"] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return tenants
+
+# Endpoint para obtener logs
+@app.get("/logs")
+def get_logs(tenant: str = None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if tenant:
+        cursor.execute("""
+            SELECT l.id, l.timestamp, c.tenant, l.user_id, l.action, l.status, l.bytes
+            FROM logs l
+            JOIN clients c ON l.client_id = c.id
+            WHERE c.tenant = %s
+            ORDER BY l.timestamp DESC
+            LIMIT 100
+        """, (tenant,))
+    else:
+        cursor.execute("""
+            SELECT l.id, l.timestamp, c.tenant, l.user_id, l.action, l.status, l.bytes
+            FROM logs l
+            JOIN clients c ON l.client_id = c.id
+            ORDER BY l.timestamp DESC
+            LIMIT 100
+        """)
+    logs = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return logs
+
+# Endpoint para obtener estadísticas
+@app.get("/stats")
+def get_stats():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT c.tenant, 
+               COUNT(*) as total_logs, 
+               SUM(CASE WHEN l.status = 'success' THEN 1 ELSE 0 END) as success_logs,
+               SUM(CASE WHEN l.status = 'failure' THEN 1 ELSE 0 END) as failure_logs
+        FROM logs l
+        JOIN clients c ON l.client_id = c.id
+        GROUP BY c.tenant
+    """)
+    stats = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return stats
