@@ -16,7 +16,7 @@ def get_db_connection():
 
 def get_es_connection():
     return Elasticsearch(
-        [os.getenv("ELASTICSEARCH_HOST", "elasticsearch:9200")],
+        [f"http://{os.getenv('ELASTICSEARCH_HOST', 'elasticsearch:9200')}"],
         basic_auth=(
             os.getenv("ELASTICSEARCH_USER", "elastic"),
             os.getenv("ELASTICSEARCH_PASSWORD", "yourpassword")

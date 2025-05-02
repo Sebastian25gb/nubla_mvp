@@ -17,8 +17,6 @@ services:
         reservations:
           memory: "512m"
     restart: unless-stopped
-    networks:
-      - internal
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
@@ -39,15 +37,34 @@ services:
         reservations:
           memory: "1g"
     restart: unless-stopped
-    networks:
-      - internal
 
-  log-ingester:
+  log-generator:
     build:
       context: .
       dockerfile: Dockerfile
     depends_on:
       - postgres
+    environment:
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=nubla_user
+      - POSTGRES_PASSWORD=secure_password_123
+      - POSTGRES_DB=nubla_db
+    command: >
+      bash -c "sleep 90 && python ingestion/generate_test_logs.py /app/ingestion/test_logs.txt 5000 30 && python ingestion/insert_logs_to_postgres.py /app/ingestion/test_logs.txt"
+    deploy:
+      resources:
+        limits:
+          memory: "512m"
+        reservations:
+          memory: "256m"
+
+  log-syncer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - log-generator
       - elasticsearch
     environment:
       - PYTHONUNBUFFERED=1
@@ -59,23 +76,16 @@ services:
       - ELASTICSEARCH_USER=elastic
       - ELASTICSEARCH_PASSWORD=yourpassword
     command: >
-      bash -c "sleep 30 && python ingestion/generate_test_logs.py /app/ingestion/test_logs.txt 5000 30 && python ingestion/insert_logs_to_postgres.py /app/ingestion/test_logs.txt && python ingestion/sync_to_elasticsearch.py"
+      bash -c "sleep 120 && python ingestion/sync_to_elasticsearch.py"
     deploy:
       resources:
         limits:
           memory: "512m"
         reservations:
           memory: "256m"
-    networks:
-      - internal
 
 volumes:
   postgres_data:
     driver: local
   esdata:
     driver: local
-
-networks:
-  internal:
-    driver: bridge
-    # internal: true  # Comentamos esta línea para deshabilitar el aislamiento
